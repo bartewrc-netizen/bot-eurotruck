@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder } = require("discord.js");
 
 const client = new Client({ 
     intents: [
@@ -15,67 +15,81 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 const OWNER_USERNAME = process.env.OWNER_USERNAME;
 
+// CREAZIONE DEI COMANDI VELOCI CON LA BARRA (SLASH COMMANDS)
+const commands = [
+    new SlashCommandBuilder().setName("inizia").setDescription("🔑 Avvia la tua consegna aziendale (Solo per il Titolare)"),
+    new SlashCommandBuilder().setName("termina").setDescription("🛑 Rientra in deposito col camion (Solo per il Titolare)")
+].map(command => command.toJSON());
+
 client.on("ready", async () => {
     console.log("Camion di Euro Truck Simulator 2 ONLINE! Acceso come: " + client.user.tag);
     
+    // Registra i comandi veloci su Discord in automatico all'avvio
+    const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
+    try {
+        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+        console.log("[SUCCESSO] Comandi veloci /inizia e /termina attivati con successo!");
+    } catch (error) {
+        console.error(error);
+    }
+
+    // Invia un avviso pulito senza pulsanti ingombranti
     const channel = client.channels.cache.get(CHANNEL_ID);
     if (channel) {
         try { await channel.bulkDelete(5).catch(() => {}); } catch(e){}
 
         const embedPannello = new EmbedBuilder()
             .setColor(0xFF8C00) 
-            .setAuthor({ name: "1 TRASPORTI 1" })
-            .setTitle("Plancia di Comando Autisti")
+            .setAuthor({ name: "🚚 DEPOSITO CENTRALE TRASPORTI 🚚" })
+            .setTitle("Centro Logistico Autisti Attivo")
             .setDescription(
-                "Benvenuti nel centro logistico della community!\n\n" +
+                "Benvenuti nel centro di tracciamento della community!\n\n" +
                 "👤 **Titolare Azienda:** `" + OWNER_USERNAME + "`\n\n" +
-                "👉 Se sei il titolare, usa i pulsanti qui sotto per aggiornare lo stato del tuo camion in tempo reale.\n" +
-                "⭐ Per tutti gli altri autisti della community, lo schieramento sul camion è **100% automatico** appena aprite il gioco!"
+                "⌨️ **Comandi Rapidi del Capo:**\n" +
+                "👉 Scrivi **`/inizia`** nella barra dei messaggi in basso quando parti per un viaggio.\n" +
+                "👉 Scrivi **`/termina`** nella barra in basso quando arrivi a destinazione.\n\n" +
+                "⭐ **Per la flotta di Autisti:** Il vostro radar è **100% automatico** appena aprite il gioco!"
             )
             .setFooter({ text: "SCS Software - Rete Logistica H24" })
             .setTimestamp();
 
-        const rigaPulsanti = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("accendi_motore").setLabel("🔑 Inizia Consegna").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("spegni_motore").setLabel("🛑 Termina Consegna").setStyle(ButtonStyle.Danger)
-        );
-
-        channel.send({ embeds: [embedPannello], components: [rigaPulsanti] }).catch(console.error);
+        channel.send({ embeds: [embedPannello] }).catch(console.error);
     }
 });
 
+// GESTIONE DEI COMANDI SCRITTI IN CHAT
 client.on("interactionCreate", async (interaction) => {
-    if (!interaction.isButton()) return;
-    
+    if (!interaction.isChatInputCommand()) return;
+
     if (interaction.user.username !== OWNER_USERNAME) {
-        return interaction.reply({ content: "❌ Questo pannello comandi è riservato esclusivamente al titolare dell'azienda (" + OWNER_USERNAME + ")!", ephemeral: true });
+        return interaction.reply({ content: "❌ Questi comandi rapidi sono riservati esclusivamente al titolare dell'azienda (" + OWNER_USERNAME + ")!", ephemeral: true });
     }
 
     const channel = client.channels.cache.get(CHANNEL_ID);
     if (!channel) return;
 
-    if (interaction.customId === "accendi_motore") {
+    if (interaction.commandName === "inizia") {
         const embedPartenza = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setAuthor({ name: "1 TRASPORTI – NOTIFICA 1" })
-            .setTitle("1 Camion in Viaggio sul Fronte")
-            .setDescription("L'autista capo **" + interaction.user.username + "** ha acceso il motore, agganciato il rimorchio ed è **partito per una nuova consegna** su **Euro Truck Simulator 2**!\n\n**Stato:** Consegna in corso nel Continente Europeo 1")
+            .setAuthor({ name: "🚚 AZIENDA TRASPORTI – NOTIFICA 🚚" })
+            .setTitle("🛣️ Camion in Viaggio sul Fronte")
+            .setDescription("L'autista capo **" + interaction.user.username + "** ha acceso il motore, agganciato il rimorchio ed è **partito per una nuova consegna** su **Euro Truck Simulator 2**!\n\n**Stato:** Consegna in corso nel Continente Europeo 🗺️")
             .setTimestamp();
         
         await channel.send({ embeds: [embedPartenza] }).catch(console.error);
-        await interaction.reply({ content: "1 Viaggio avviato con successo, buona strada!", ephemeral: true });
+        await interaction.reply({ content: "✅ Viaggio avviato con successo, buona strada!", ephemeral: true });
     }
 
-    if (interaction.customId === "spegni_motore") {
+    if (interaction.commandName === "termina") {
         const embedArrivo = new EmbedBuilder()
             .setColor(0xFF0000)
-            .setAuthor({ name: "1 TRASPORTI – AGGIORNAMENTO 1" })
-            .setTitle("1 Consegna Completata")
+            .setAuthor({ name: "🚚 AZIENDA TRASPORTI – AGGIORNAMENTO 🚚" })
+            .setTitle("🏁 Consegna Completata")
             .setDescription("L'autista capo **" + interaction.user.username + "** ha parcheggiato il veicolo, spento i sistemi ed è **rientrato correttamente in deposito**.\n\n**Stato:** Riposo autisti attivo.")
             .setTimestamp();
 
         await channel.send({ embeds: [embedArrivo] }).catch(console.error);
-        await interaction.reply({ content: "1 Rimorchio sganciato, rientro in deposito registrato!", ephemeral: true });
+        await interaction.reply({ content: "🛑 Rimorchio sganciato, rientro in deposito registrato!", ephemeral: true });
     }
 });
 
@@ -84,7 +98,7 @@ setInterval(() => {
         try {
             const members = await guild.members.fetch({ withPresences: true });
             members.forEach((m) => {
-                if (m.user.bot || m.user.username === OWNER_USERNAME) return;
+                if (m.user.bot || m.user.username === "winstonblue76" || m.user.username === OWNER_USERNAME) return;
                 const presence = m.presence;
 
                 const gestisciUscitaAmico = () => {
@@ -95,9 +109,9 @@ setInterval(() => {
                             
                             const embedLeave = new EmbedBuilder()
                                 .setColor(0xFF0000)
-                                .setAuthor({ name: "1 TRASPORTI – AGGIORNAMENTO 1" })
-                                .setTitle("1 Consegna Completata")
-                                .setDescription("Il camionista **" + m.user.username + "** ha finito il seu turno ed è **rientrato correttamente in deposito**.")
+                                .setAuthor({ name: "🚚 AZIENDA TRASPORTI – AGGIORNAMENTO 🚚" })
+                                .setTitle("🏁 Consegna Completata")
+                                .setDescription("Il camionista **" + m.user.username + "** ha finito il suo turno ed è **rientrato correttamente in deposito**.")
                                 .setThumbnail(m.user.displayAvatarURL({ dynamic: true }))
                                 .setTimestamp();
                             
@@ -125,8 +139,8 @@ setInterval(() => {
                         
                         const embedJoin = new EmbedBuilder()
                             .setColor(0x00FF00)
-                            .setAuthor({ name: "1 TRASPORTI – NOTIFICA 1" })
-                            .setTitle("1 Camion in Viaggio sul Fronte")
+                            .setAuthor({ name: "🚚 AZIENDA TRASPORTI – NOTIFICA 🚚" })
+                            .setTitle("🛣️ Camion in Viaggio sul Fronte")
                             .setDescription("Il camionista **" + m.user.username + "** si è appena messo alla guida ed è **partito per una consegna** su **Euro Truck Simulator 2**!")
                             .setThumbnail(m.user.displayAvatarURL({ dynamic: true }))
                             .setTimestamp();
@@ -143,3 +157,4 @@ setInterval(() => {
 }, 5000);
 
 client.login(DISCORD_TOKEN);
+
