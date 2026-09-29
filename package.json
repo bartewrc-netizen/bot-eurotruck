@@ -1,0 +1,12 @@
+{
+  "name": "ets2-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot di logistica H24 per Euro Truck Simulator 2",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
+}
